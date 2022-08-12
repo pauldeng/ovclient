@@ -33,6 +33,7 @@ revoke() {
 }
 
 add() {
+	SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 	log=$(mktemp)
 	client=$(sed 's/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g' <<< "$1")
 	[ -e /etc/openvpn/server/easy-rsa/pki/issued/"$client".crt ] && { die "$client exists"; }
@@ -40,7 +41,7 @@ add() {
 
 	EASYRSA_CERT_EXPIRE=3650 ./easyrsa build-client-full "$client" nopass &>> "$log"
 	status+=$?
-	mkdir -p "$OVUSERHOME"/"$client"
+	mkdir -p "$SCRIPT_DIR"/ovpns
 	# Generates the custom client.ovpn
 	{
 	cat /etc/openvpn/server/client-common.txt
@@ -56,8 +57,8 @@ add() {
 	echo "<tls-auth>"
 	sed -ne '/BEGIN OpenVPN Static key/,$ p' /etc/openvpn/server/ta.key
 	echo "</tls-auth>"
-	} > "$OVUSERHOME"/"$client"/"${client}".ovpn
-	chown -R "$OVUSER" "$OVUSERHOME"/"$client"
+	} > "$SCRIPT_DIR"/ovpns/"${client}".ovpn
+	chown -R "$OVUSER" "$SCRIPT_DIR"/ovpns
 
 	check_status "$status" "$log" 
 	echo "OK! $client created"
@@ -99,8 +100,8 @@ cleanup() {
 
 # main {{{
 	[ "X$SUDO_USER" != "X" ] && { OVUSER=$SUDO_USER; } || { OVUSER=$LOGNAME; }
-	OVUSERHOME=$( eval echo ~"$OVUSER" );
-	LOCKDIR="$(pwd)/.ovclient-lock"
+	SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+	LOCKDIR="${SCRIPT_DIR}/.ovclient-lock"
 
 	# try 3 times
 	for i in {1..5}
