@@ -59,9 +59,9 @@ add() { #{{{
 	echo "<key>"
 	cat /etc/openvpn/server/easy-rsa/pki/private/$client.key
 	echo "</key>"
-	echo "<tls-crypt>"
-	sed -ne '/BEGIN OpenVPN Static key/,$ p' /etc/openvpn/server/tc.key
-	echo "</tls-crypt>"
+	echo "<tls-auth>"
+	sed -ne '/BEGIN OpenVPN Static key/,$ p' /etc/openvpn/server/ta.key
+	echo "</tls-auth>"
 	} > $OVUSERHOME/$client/${client}.ovpn
 	chown -R $OVUSER $OVUSERHOME/$client
 
@@ -96,8 +96,8 @@ Options:
 
 EOF
 }
-
 #}}}
+
 # main {{{
 	[ "X$SUDO_USER" != "X" ] && { OVUSER=$SUDO_USER; } || { OVUSER=$LOGNAME; }
 	OVUSERHOME=$( eval echo ~$OVUSER );
@@ -115,5 +115,4 @@ EOF
 	[ -n "$ADDCLIENT" ] && { 
 		add $ADDCLIENT;
 	}
-
 #}}}
