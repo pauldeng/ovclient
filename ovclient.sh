@@ -89,22 +89,50 @@ Options:
 EOF
 }
 
+#Remove the lock directory
+cleanup() {
+    if ! rmdir -- "$LOCKDIR"; then
+        echo >&2 "Failed to remove lock directory '$LOCKDIR'"
+        exit 1
+    fi
+}
+
 # main {{{
 	[ "X$SUDO_USER" != "X" ] && { OVUSER=$SUDO_USER; } || { OVUSER=$LOGNAME; }
 	OVUSERHOME=$( eval echo ~"$OVUSER" );
+	LOCKDIR="$(pwd)/.ovclient-lock"
 
-	while getopts "lLa:r:vh" opt; do
-		case "$opt" in
-			l) list date;;
-			L) list alphabet;;
-			a) ADDCLIENT=$OPTARG ;;
-			r) revoke "$OPTARG" ;;
-			v) VERBOSE=1 ;;
-			h) print_help ;;
-			*) echo -n "unknown";;
-		esac
+	# try 3 times
+	for i in {1..5}
+	do
+		if mkdir -- "$LOCKDIR"; then
+			#Ensure that if we "grabbed a lock", we release it
+			#Works for SIGTERM and SIGINT(Ctrl-C) as well in some shells
+			#including bash.
+			trap "cleanup" EXIT
+
+			while getopts "lLa:r:vh" opt; do
+				case "$opt" in
+					l) list date;;
+					L) list alphabet;;
+					a) ADDCLIENT=$OPTARG ;;
+					r) revoke "$OPTARG" ;;
+					v) VERBOSE=1 ;;
+					h) print_help ;;
+					*) echo -n "unknown";;
+				esac
+			done
+			[ -n "$ADDCLIENT" ] && { 
+				add "$ADDCLIENT";
+			}
+
+			break
+
+		else
+			echo >&2 "Could not create lock directory '$LOCKDIR'"
+			# wait 200ms and retry
+			sleep 0.2
+			# exit 1
+		fi
 	done
-	[ -n "$ADDCLIENT" ] && { 
-		add "$ADDCLIENT";
-	}
 #}}}
