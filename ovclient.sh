@@ -32,7 +32,7 @@ scanips() {
 }
 
 die() {
-	printf 'ERROR: %s\n' "$1"; exit;
+	printf 'ERROR:%s\n' "$1"; exit;
 }
 
 check_status() {
@@ -74,21 +74,21 @@ add() {
 		# ip address: try to allocate that number
 		if [[ $2 =~ 10+\.8+\.[0-9]+\.[0-9]+$ ]] ; then
 			ip="$2"
-			echo "Allocating IP address $ip"
+			# echo "Allocating IP address $ip"
 			# scan all ips to find the current max
 			scanips
 			if grep -Fxq "$ip" "$tmpfile" ; then
     			# code if found
-				echo "ERROR: This $ip is already configured"
+				echo "ERROR:This $ip is already configured"
 				exit
 			else
     			# code if not found
-    			echo "This $ip is available"
+    			# echo "This $ip is available"
 				nextIp=$ip
 			fi
 			
 		elif [ "$2" == "auto" ]; then
-			echo "Allocate IP address automatically"
+			# echo "Allocate IP address automatically"
 			# scan all ips to find the current max
 			scanips
 			currentIp=$(head -n 1 "$tmpfile")
@@ -96,7 +96,7 @@ add() {
 			nextIp=$(nextip "$currentIp")
 			#echo "$nextIp"
 		else
-			echo "Invalid static IP address"
+			echo "ERROR:Invalid static IP address"
 			exit
 		fi
 	fi
@@ -130,15 +130,20 @@ add() {
 	} > "$SCRIPT_DIR"/ovpns/"${client}".ovpn
 	chown -R "$OVUSER" "$SCRIPT_DIR"/ovpns
 
+	check_status "$status" "$log" 
+
 	# if static ip is allocated, add configuration to /etc/client/
 	if [[ -n "$nextIp" ]] ; then
 		#echo "lwa"
 		# { printf 'ifconfig-push %s 255.255.0.0' "$nextIp" } > /etc/openvpn/client/"${client}"
 		echo "ifconfig-push $nextIp 255.255.0.0" > /etc/openvpn/client/"${client}"
-	fi
 
-	check_status "$status" "$log" 
-	echo "OK! $client created"
+		rm -r "$tmpfile"
+
+		echo "OK:$client,$nextIp created"
+	else
+		echo "OK:$client created"
+	fi
 }
 
 list() {
@@ -159,7 +164,7 @@ print_help() {
 Options:
 -l          list clients by date (ls /etc/openvpn/server/easy-rsa/pki/issued/)
 -L          list clients by name
--a <name>   add client  -s add static ip address
+-a <name>   add client  -s add static ip address ["auto", "10.8.0.46"]
 -r <name>   revoke client
 -v          be verbose
 -h          this help
@@ -170,7 +175,7 @@ EOF
 #Remove the lock directory
 cleanup() {
     if ! rmdir -- "$LOCKDIR"; then
-        echo >&2 "Failed to remove lock directory '$LOCKDIR'"
+        echo >&2 "ERROR:Failed to remove lock directory '$LOCKDIR'"
         exit 1
     fi
 }
@@ -198,7 +203,7 @@ cleanup() {
 					r) revoke "$OPTARG" ;;
 					v) VERBOSE=1 ;;
 					h) print_help ;;
-					*) echo -n "unknown";;
+					*) echo -n "ERROR:unknown parameter";;
 				esac
 			done
 
@@ -211,7 +216,7 @@ cleanup() {
 			break
 
 		else
-			echo >&2 "Could not create lock directory '$LOCKDIR'"
+			echo >&2 "ERROR:Could not create lock directory '$LOCKDIR'"
 			# wait 200ms and retry
 			sleep 0.2
 			# exit 1
