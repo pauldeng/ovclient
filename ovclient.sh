@@ -1,5 +1,36 @@
 #!/bin/bash
 
+nextip() {
+    IP=$1
+    IP_HEX=$(printf '%.2X%.2X%.2X%.2X\n' $(echo "$IP" | sed -e 's/\./ /g'))
+    if [[ $IP_HEX == *FE ]] ; then
+        # if 254, skip 255 and 0 and move to 1
+        NEXT_IP_HEX=$(printf %.8X $(echo $(( 0x"$IP_HEX" + 3 ))))
+    elif [[ $IP_HEX == *FF ]] ; then
+        # if 255, skip 0 and move to 1
+        NEXT_IP_HEX=$(printf %.8X $(echo $(( 0x"$IP_HEX" + 2 ))))
+    else
+        NEXT_IP_HEX=$(printf %.8X $(echo $(( 0x"$IP_HEX" + 1 ))))
+    fi
+    NEXT_IP=$(printf '%d.%d.%d.%d\n' $(echo "$NEXT_IP_HEX" | sed -r 's/(..)/0x\1 /g'))
+    echo "$NEXT_IP"
+}
+
+scanips() {
+	tmpfile=$(mktemp /tmp/openvpn-client-ips.XXXXXX)
+
+	# read all ip into a temp file
+	for file in /etc/openvpn/client/*; do
+    	clientIpConf=$(<"$file")
+    	#echo "$clientIpConf"
+    	clientIpConfInput=(${clientIpConf// / })
+    	clientStaticIp=${clientIpConfInput[1]}
+    	echo "$clientStaticIp" >> "$tmpfile"
+	done
+	# sort ips in desc order in place
+	sort -t . -nrk 1,1 -nrk 2,2 -nrk 3,3 -nrk 4,4 "$tmpfile" -o "$tmpfile"
+}
+
 die() {
 	printf 'ERROR: %s\n' "$1"; exit;
 }
@@ -35,6 +66,41 @@ revoke() {
 add() {
 	SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 	log=$(mktemp)
+
+	if [ $# -eq 2 ] ; then
+		#echo "2 arguments supplied"
+		# the ip has to within 10.8.0.1 - 10.8.255.255
+		# auto: try to allocate the largest ip address
+		# ip address: try to allocate that number
+		if [[ $2 =~ 10+\.8+\.[0-9]+\.[0-9]+$ ]] ; then
+			ip="$2"
+			echo "Allocating IP address $ip"
+			# scan all ips to find the current max
+			scanips
+			if grep -Fxq "$ip" "$tmpfile" ; then
+    			# code if found
+				echo "ERROR: This $ip is already configured"
+				exit
+			else
+    			# code if not found
+    			echo "This $ip is available"
+				nextIp=$ip
+			fi
+			
+		elif [ "$2" == "auto" ]; then
+			echo "Allocate IP address automatically"
+			# scan all ips to find the current max
+			scanips
+			currentIp=$(head -n 1 "$tmpfile")
+			#echo "$currentIp"
+			nextIp=$(nextip "$currentIp")
+			#echo "$nextIp"
+		else
+			echo "Invalid static IP address"
+			exit
+		fi
+	fi
+
 	client=$(sed 's/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g' <<< "$1")
 	[ -e /etc/openvpn/server/easy-rsa/pki/issued/"$client".crt ] && { die "$client exists"; }
 	cd /etc/openvpn/server/easy-rsa/ || exit
@@ -44,6 +110,10 @@ add() {
 	mkdir -p "$SCRIPT_DIR"/ovpns
 	# Generates the custom client.ovpn
 	{
+	# if static ip is allocated, add it to comment of client ovpn file
+	if [[ -n "$nextIp" ]] ; then
+		echo "# static ip address:$nextIp"
+	fi
 	cat /etc/openvpn/server/client-common.txt
 	echo "<ca>"
 	cat /etc/openvpn/server/easy-rsa/pki/ca.crt
@@ -59,6 +129,13 @@ add() {
 	echo "</tls-auth>"
 	} > "$SCRIPT_DIR"/ovpns/"${client}".ovpn
 	chown -R "$OVUSER" "$SCRIPT_DIR"/ovpns
+
+	# if static ip is allocated, add configuration to /etc/client/
+	if [[ -n "$nextIp" ]] ; then
+		#echo "lwa"
+		# { printf 'ifconfig-push %s 255.255.0.0' "$nextIp" } > /etc/openvpn/client/"${client}"
+		echo "ifconfig-push $nextIp 255.255.0.0" > /etc/openvpn/client/"${client}"
+	fi
 
 	check_status "$status" "$log" 
 	echo "OK! $client created"
@@ -82,7 +159,7 @@ print_help() {
 Options:
 -l          list clients by date (ls /etc/openvpn/server/easy-rsa/pki/issued/)
 -L          list clients by name
--a <name>   add client
+-a <name>   add client  -s add static ip address
 -r <name>   revoke client
 -v          be verbose
 -h          this help
@@ -112,20 +189,24 @@ cleanup() {
 			#including bash.
 			trap "cleanup" EXIT
 
-			while getopts "lLa:r:vh" opt; do
+			while getopts "lLa:s:r:vh" opt; do
 				case "$opt" in
 					l) list date;;
 					L) list alphabet;;
 					a) ADDCLIENT=$OPTARG ;;
+					s) staticIp=$OPTARG ;;
 					r) revoke "$OPTARG" ;;
 					v) VERBOSE=1 ;;
 					h) print_help ;;
 					*) echo -n "unknown";;
 				esac
 			done
-			[ -n "$ADDCLIENT" ] && { 
-				add "$ADDCLIENT";
-			}
+
+			if [ -n "$ADDCLIENT" ] && [ -z "$staticIp" ] ; then
+				add "$ADDCLIENT"
+			elif [ -n "$ADDCLIENT" ] && [ -n "$staticIp" ] ; then
+				add "$ADDCLIENT" "$staticIp"
+			fi
 
 			break
 
