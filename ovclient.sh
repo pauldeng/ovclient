@@ -83,9 +83,10 @@ revoke() {
 
 add() {
 	SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+	ABSOLUTE_OVPN_OUTPUT_DIR="$SCRIPT_DIR"/ovpns/
 	log=$(mktemp)
 
-	if [ $# -eq 2 ]; then
+	if [ $# -ge 2 ]; then
 		#echo "2 arguments supplied"
 		# the ip has to within 10.8.0.1 - 10.8.255.255
 		# auto: try to allocate the largest ip address
@@ -104,7 +105,6 @@ add() {
 				# echo "This $ip is available"
 				nextIp=$ip
 			fi
-
 		elif [ "$2" == "auto" ]; then
 			# echo "Allocate IP address automatically"
 			# scan all ips to find the current max
@@ -117,6 +117,12 @@ add() {
 			echo "ERROR:Invalid static IP address"
 			exit
 		fi
+
+		if [ -n "$3" ]; then
+			# Absolute output path for ovpn file
+			# Example is /home/ubuntu/openvpn_keys/
+			ABSOLUTE_OVPN_OUTPUT_DIR="$3"
+		fi
 	fi
 
 	client=$(sed 's/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g' <<<"$1")
@@ -128,7 +134,7 @@ add() {
 	# This works for easy-rsa 3.1.0
 	EASYRSA_CERT_EXPIRE=3650 ./easyrsa build-client-full "$client" nopass &>>"$log"
 	status+=$?
-	mkdir -p "$SCRIPT_DIR"/ovpns
+	mkdir -p "$ABSOLUTE_OVPN_OUTPUT_DIR"
 	# Generates the custom client.ovpn
 	{
 		# if static ip is allocated, add it to comment of client ovpn file
@@ -148,8 +154,9 @@ add() {
 		echo "<tls-auth>"
 		sed -ne '/BEGIN OpenVPN Static key/,$ p' /etc/openvpn/server/ta.key
 		echo "</tls-auth>"
-	} >"$SCRIPT_DIR"/ovpns/"${client}".ovpn
-	chown -R "$OVUSER" "$SCRIPT_DIR"/ovpns
+	} >"$ABSOLUTE_OVPN_OUTPUT_DIR""${client}".ovpn
+	# echo "$ABSOLUTE_OVPN_OUTPUT_DIR""${client}".ovpn
+	chown -R "$OVUSER" "$ABSOLUTE_OVPN_OUTPUT_DIR"
 
 	check_status "$status" "$log"
 
@@ -185,7 +192,7 @@ print_help() {
 Options:
 -l          list clients by date (ls /etc/openvpn/server/easy-rsa/pki/issued/)
 -L          list clients by name
--a <name>   add client  -s add static ip address ["auto", "10.8.0.46"]
+-a <name>   add client  -s add static ip address ["auto", "10.8.0.46"] -O absloute output ovpn path
 -r <name>   revoke client
 -v          be verbose
 -h          this help
@@ -214,12 +221,13 @@ for i in {1..5}; do
 		#including bash.
 		trap "cleanup" EXIT
 
-		while getopts "lLa:s:r:vh" opt; do
+		while getopts "lLa:s:O:r:vh" opt; do
 			case "$opt" in
 			l) list date ;;
 			L) list alphabet ;;
 			a) ADDCLIENT=$OPTARG ;;
 			s) staticIp=$OPTARG ;;
+			O) absOutputPath=$OPTARG ;;
 			r) revoke "$OPTARG" ;;
 			v) VERBOSE=1 ;;
 			h) print_help ;;
@@ -227,10 +235,12 @@ for i in {1..5}; do
 			esac
 		done
 
-		if [ -n "$ADDCLIENT" ] && [ -z "$staticIp" ]; then
+		if [ -n "$ADDCLIENT" ] && [ -z "$staticIp" ] && [ -z "$absOutputPath" ]; then
 			add "$ADDCLIENT"
-		elif [ -n "$ADDCLIENT" ] && [ -n "$staticIp" ]; then
+		elif [ -n "$ADDCLIENT" ] && [ -n "$staticIp" ] && [ -z "$absOutputPath" ]; then
 			add "$ADDCLIENT" "$staticIp"
+		elif [ -n "$ADDCLIENT" ] && [ -n "$staticIp" ] && [ -n "$absOutputPath" ]; then
+			add "$ADDCLIENT" "$staticIp" "$absOutputPath"
 		fi
 
 		break
