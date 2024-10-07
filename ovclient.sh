@@ -116,6 +116,9 @@ add() {
 	[ -e /etc/openvpn/server/easy-rsa/pki/issued/"$client".crt ] && { die "$client exists"; }
 	cd /etc/openvpn/server/easy-rsa/ || exit
 
+	# This is works for old easy-rsa 3.1.0
+	# If more recent easy-rsa is used, you should use
+	# EASYRSA_BATCH=1 EASYRSA_CERT_EXPIRE=3650 ./easyrsa build-client-full "$client" nopass &>> "$log"
 	EASYRSA_CERT_EXPIRE=3650 ./easyrsa build-client-full "$client" nopass &>> "$log"
 	status+=$?
 	mkdir -p "$SCRIPT_DIR"/ovpns
