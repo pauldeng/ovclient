@@ -19,6 +19,17 @@ nextip() {
 scanips() {
 	tmpfile=$(mktemp /tmp/openvpn-client-ips.XXXXXX)
 
+	if [ ! -d "/etc/openvpn/client/" ]; then
+	    echo >&2 "/etc/openvpn/client/ does not exist."
+		exit 2
+	fi
+
+	files=$(shopt -s nullglob dotglob; echo /etc/openvpn/client/*)
+	if ((! ${#files} )); then
+	    echo >&2 "Need at least one static IP conf in /etc/openvpn/client/"
+		exit 2
+	fi
+
 	# read all ip into a temp file
 	for file in /etc/openvpn/client/*; do
     	clientIpConf=$(<"$file")
