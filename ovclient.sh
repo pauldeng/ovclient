@@ -2,7 +2,7 @@
 
 nextip() {
 	IP=$1
-	IP_HEX=$(printf '%.2X%.2X%.2X%.2X\n' $(echo "$IP" | sed -e 's/\./ /g'))
+	IP_HEX=$(printf "%.2X%.2X%.2X%.2X\n" $(echo "$IP" | sed -e "s/\./ /g"))
 	if [[ $IP_HEX == *FE ]]; then
 		# if 254, skip 255 and 0 and move to 1
 		NEXT_IP_HEX=$(printf %.8X $(echo $((0x"$IP_HEX" + 3))))
@@ -12,7 +12,7 @@ nextip() {
 	else
 		NEXT_IP_HEX=$(printf %.8X $(echo $((0x"$IP_HEX" + 1))))
 	fi
-	NEXT_IP=$(printf '%d.%d.%d.%d\n' $(echo "$NEXT_IP_HEX" | sed -r 's/(..)/0x\1 /g'))
+	NEXT_IP=$(printf "%d.%d.%d.%d\n" $(echo "$NEXT_IP_HEX" | sed -r "s/(..)/0x\1 /g"))
 	echo "$NEXT_IP"
 }
 
@@ -46,13 +46,13 @@ scanips() {
 }
 
 die() {
-	printf 'ERROR:%s\n' "$1"
+	printf "ERROR:%s\n" "$1"
 	exit
 }
 
 check_status() {
-	# As long as ./easyrsa returns 0 (success) we don't bother the non-verbose users
-	should_be_empty=$(echo "$1" | sed 's/0//g')
+	# As long as ./easyrsa returns 0 (success) we don"t bother the non-verbose users
+	should_be_empty=$(echo "$1" | sed "s/0//g")
 	[ "X$should_be_empty" == "X" ] || {
 		cat "$2"
 		die "Failed for $client"
@@ -62,8 +62,8 @@ check_status() {
 
 revoke() {
 	log=$(mktemp)
-	group_name=$(groups nobody | cut -f2 -d: | cut -f2 -d' ')
-	groups nobody | grep -q " $group_name" || { die "Failed at detecting group for user 'nobody'"; }
+	group_name=$(groups nobody | cut -f2 -d: | cut -f2 -d" ")
+	groups nobody | grep -q " $group_name" || { die "Failed at detecting group for user nobody"; }
 	cd /etc/openvpn/server/easy-rsa/ || exit
 	./easyrsa --batch revoke "$1" &>>"$log"
 
@@ -125,7 +125,7 @@ add() {
 		fi
 	fi
 
-	client=$(sed 's/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g' <<<"$1")
+	client=$(sed "s/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g" <<<"$1")
 	[ -e /etc/openvpn/server/easy-rsa/pki/issued/"$client".crt ] && { die "$client exists"; }
 	cd /etc/openvpn/server/easy-rsa/ || exit
 
@@ -146,13 +146,13 @@ add() {
 		cat /etc/openvpn/server/easy-rsa/pki/ca.crt
 		echo "</ca>"
 		echo "<cert>"
-		sed -ne '/BEGIN CERTIFICATE/,$ p' /etc/openvpn/server/easy-rsa/pki/issued/"$client".crt
+		sed -ne "/BEGIN CERTIFICATE/,$ p" /etc/openvpn/server/easy-rsa/pki/issued/"$client".crt
 		echo "</cert>"
 		echo "<key>"
 		cat /etc/openvpn/server/easy-rsa/pki/private/"$client".key
 		echo "</key>"
 		echo "<tls-auth>"
-		sed -ne '/BEGIN OpenVPN Static key/,$ p' /etc/openvpn/server/ta.key
+		sed -ne "/BEGIN OpenVPN Static key/,$ p" /etc/openvpn/server/ta.key
 		echo "</tls-auth>"
 	} >"$ABSOLUTE_OVPN_OUTPUT_DIR""${client}".ovpn
 	# echo "$ABSOLUTE_OVPN_OUTPUT_DIR""${client}".ovpn
@@ -163,7 +163,7 @@ add() {
 	# if static ip is allocated, add configuration to /etc/client/
 	if [[ -n "$nextIp" ]]; then
 		#echo "lwa"
-		# { printf 'ifconfig-push %s 255.255.0.0' "$nextIp" } > /etc/openvpn/client/"${client}"
+		# { printf "ifconfig-push %s 255.255.0.0" "$nextIp" } > /etc/openvpn/client/"${client}"
 		echo "ifconfig-push $nextIp 255.255.0.0" >/etc/openvpn/client/"${client}"
 
 		rm -r "$tmpfile"
@@ -176,13 +176,13 @@ add() {
 
 list() {
 	[ "X$1" == "Xalphabet" ] && {
-		ls /etc/openvpn/server/easy-rsa/pki/issued/ | grep -v 'server.crt' | while read -r i; do
-			echo "$i" | sed 's/\.crt$//'
+		ls /etc/openvpn/server/easy-rsa/pki/issued/ | grep -v "server.crt" | while read -r i; do
+			echo "$i" | sed "s/\.crt$//"
 		done
 	}
 	[ "X$1" == "Xdate" ] && {
-		ls -tlh /etc/openvpn/server/easy-rsa/pki/issued/ | grep -v 'server.crt' | while read -r i; do
-			echo "$i" | sed 's/\.crt$//'
+		ls -tlh /etc/openvpn/server/easy-rsa/pki/issued/ | grep -v "server.crt" | while read -r i; do
+			echo "$i" | sed "s/\.crt$//"
 		done
 	}
 }
@@ -203,7 +203,7 @@ EOF
 #Remove the lock directory
 cleanup() {
 	if ! rmdir -- "$LOCKDIR"; then
-		echo >&2 "ERROR:Failed to remove lock directory '$LOCKDIR'"
+		echo >&2 "ERROR:Failed to remove lock directory $LOCKDIR"
 		exit 1
 	fi
 }
@@ -246,7 +246,7 @@ for i in {1..5}; do
 		break
 
 	else
-		echo >&2 "ERROR:Could not create lock directory '$LOCKDIR'"
+		echo >&2 "ERROR:Could not create lock directory $LOCKDIR"
 		# wait 200ms and retry
 		sleep 0.2
 		# exit 1
