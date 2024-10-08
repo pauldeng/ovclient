@@ -214,8 +214,10 @@ cleanup() {
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 LOCKDIR="${SCRIPT_DIR}/.ovclient-lock"
 
-# try 3 times
-for i in {1..10}; do
+# try 10 times
+MAX=10
+
+for i in $(seq 1 "$MAX"); do
 	if mkdir -- "$LOCKDIR"; then
 		#Ensure that if we "grabbed a lock", we release it
 		#Works for SIGTERM and SIGINT(Ctrl-C) as well in some shells
@@ -247,10 +249,14 @@ for i in {1..10}; do
 		break
 
 	else
-		echo >&2 "ERROR:Could not create lock directory $LOCKDIR"
+		if [ "$i" -ge $MAX ]; then
+			echo >&2 "Error:Failed to create lock directory $LOCKDIR"
+			exit 2
+		fi
+
+		#echo >&2 "Warning:$i Trying to create lock directory $LOCKDIR"
 		# wait 500ms and retry
 		sleep 0.5
-		# exit 1
 	fi
 done
 #}}}
