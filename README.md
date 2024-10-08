@@ -19,6 +19,7 @@ This script is forked from [Karol Kreński](https://github.com/mimooh/ovclient) 
 
 - Removed optional google authenticator support
 - Added optional static ip address allocation
+- Only 1 instance of this script can be executing
 
 ## Getting Started
 
@@ -42,6 +43,9 @@ sudo ./ovclient.sh -a user7 -s auto
 # ip end with 255 or 0 are skipped, for example 10.8.0.255, 10.8.1.0, ... are skipped
 # ovclient creates user7 file in /etc/openvpn/client/ with the allocated ip address
 # ovclient creates user7.ovpn and the allocated ip address is embedded in the comment
+
+# add user7 with next available static ip and export the .ovpn file to path /home/ubuntu/openvpn_keys/. The default path is ovpns under the script folder
+sudo ./ovclient.sh -a user7 -s auto -O /home/ubuntu/openvpn_keys/
 
 # add user7 with specified static ip
 sudo ./ovclient.sh -a user7 -s 10.8.0.46
@@ -70,6 +74,12 @@ sudo ./ovclient.sh -l
 sudo ./ovclient.sh -L
 ```
 
+### Execute with in-line sudo password
+
+```sh
+$echo <password> | sudo -S <command>
+```
+
 ## Acknowledgments
 
-* [Karol Kreński](https://github.com/mimooh)
+- [Karol Kreński](https://github.com/mimooh)
