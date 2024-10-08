@@ -38,7 +38,7 @@ scanips() {
 	for file in /etc/openvpn/client/*; do
 		clientIpConf=$(<"$file")
 		#echo "$clientIpConf"
-		IFS=' ' read -r -a clientIpConfInput <<< "$clientIpConf"
+		IFS=' ' read -r -a clientIpConfInput <<<"$clientIpConf"
 		clientStaticIp=${clientIpConfInput[1]}
 		echo "$clientStaticIp" >>"$tmpfile"
 	done
@@ -68,9 +68,9 @@ revoke() {
 	cd /etc/openvpn/server/easy-rsa/ || exit
 	./easyrsa --batch revoke "$1" &>>"$log"
 
-	(( status += $? ))
+	((status += $?))
 	EASYRSA_CRL_DAYS=3650 ./easyrsa gen-crl &>>"$log"
-	(( status += $? ))
+	((status += $?))
 	rm -f "/etc/openvpn/server/easy-rsa/pki/private/$1.key" 2>/dev/null
 	rm -f "/etc/openvpn/server/easy-rsa/pki/issued/$1.crt" 2>/dev/null
 	rm -f "/etc/openvpn/server/easy-rsa/pki/reqs/$1.req" 2>/dev/null
@@ -134,7 +134,7 @@ add() {
 	# EASYRSA_BATCH=1 EASYRSA_CERT_EXPIRE=3650 ./easyrsa build-client-full "$client" nopass &>> "$log"
 	# This works for easy-rsa 3.1.0
 	EASYRSA_CERT_EXPIRE=3650 ./easyrsa build-client-full "$client" nopass &>>"$log"
-	(( status += $? ))
+	((status += $?))
 	mkdir -p "$ABSOLUTE_OVPN_OUTPUT_DIR"
 	# Generates the custom client.ovpn
 	{
