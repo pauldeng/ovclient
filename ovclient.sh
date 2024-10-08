@@ -215,7 +215,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 LOCKDIR="${SCRIPT_DIR}/.ovclient-lock"
 
 # try 3 times
-for i in {1..5}; do
+for i in {1..10}; do
 	if mkdir -- "$LOCKDIR"; then
 		#Ensure that if we "grabbed a lock", we release it
 		#Works for SIGTERM and SIGINT(Ctrl-C) as well in some shells
@@ -248,8 +248,8 @@ for i in {1..5}; do
 
 	else
 		echo >&2 "ERROR:Could not create lock directory $LOCKDIR"
-		# wait 200ms and retry
-		sleep 0.2
+		# wait 500ms and retry
+		sleep 0.5
 		# exit 1
 	fi
 done
