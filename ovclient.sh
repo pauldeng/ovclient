@@ -2,17 +2,18 @@
 
 nextip() {
 	IP=$1
-	IP_HEX=$(printf "%.2X%.2X%.2X%.2X\n" $(echo "$IP" | sed -e "s/\./ /g"))
+	IFS="." read -r a b c d <<<"$IP"
+	IP_HEX=$(printf "%02X%02X%02X%02X\n" "$a" "$b" "$c" "$d")
 	if [[ $IP_HEX == *FE ]]; then
 		# if 254, skip 255 and 0 and move to 1
-		NEXT_IP_HEX=$(printf %.8X $(echo $((0x"$IP_HEX" + 3))))
+		NEXT_IP_HEX=$(printf "%.8X" "$((0x$IP_HEX + 3))")
 	elif [[ $IP_HEX == *FF ]]; then
 		# if 255, skip 0 and move to 1
-		NEXT_IP_HEX=$(printf %.8X $(echo $((0x"$IP_HEX" + 2))))
+		NEXT_IP_HEX=$(printf "%.8X" "$((0x$IP_HEX + 2))")
 	else
-		NEXT_IP_HEX=$(printf %.8X $(echo $((0x"$IP_HEX" + 1))))
+		NEXT_IP_HEX=$(printf "%.8X" "$((0x$IP_HEX + 1))")
 	fi
-	NEXT_IP=$(printf "%d.%d.%d.%d\n" $(echo "$NEXT_IP_HEX" | sed -r "s/(..)/0x\1 /g"))
+	NEXT_IP=$(printf "%d.%d.%d.%d\n" $((0x${NEXT_IP_HEX:0:2})) $((0x${NEXT_IP_HEX:2:2})) $((0x${NEXT_IP_HEX:4:2})) $((0x${NEXT_IP_HEX:6:2})))
 	echo "$NEXT_IP"
 }
 
@@ -37,7 +38,7 @@ scanips() {
 	for file in /etc/openvpn/client/*; do
 		clientIpConf=$(<"$file")
 		#echo "$clientIpConf"
-		clientIpConfInput=(${clientIpConf// / })
+		IFS=' ' read -r -a clientIpConfInput <<< "$clientIpConf"
 		clientStaticIp=${clientIpConfInput[1]}
 		echo "$clientStaticIp" >>"$tmpfile"
 	done
@@ -51,7 +52,7 @@ die() {
 }
 
 check_status() {
-	# As long as ./easyrsa returns 0 (success) we don"t bother the non-verbose users
+	# As long as ./easyrsa returns 0 (success) we don't bother the non-verbose users
 	should_be_empty=$(echo "$1" | sed "s/0//g")
 	[ "X$should_be_empty" == "X" ] || {
 		cat "$2"
@@ -63,7 +64,7 @@ check_status() {
 revoke() {
 	log=$(mktemp)
 	group_name=$(groups nobody | cut -f2 -d: | cut -f2 -d" ")
-	groups nobody | grep -q " $group_name" || { die "Failed at detecting group for user nobody"; }
+	groups nobody | grep -q " $group_name" || { die "Failed at detecting group for user 'nobody'"; }
 	cd /etc/openvpn/server/easy-rsa/ || exit
 	./easyrsa --batch revoke "$1" &>>"$log"
 
